@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panorama viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E7EBE4; --ink:#1F2A24; --muted:#56635A; --accent:#35664A; --accent-ink:#FFFFFF;
+  --panel:rgba(248,250,246,.94); --line:#C5CEC3; --field:#FFFFFF;
+  --warn-bg:#F5E6C8; --warn-ink:#6B4507; --err-bg:#F4D9D4; --err-ink:#7A2418;
+  --radius:14px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141A17; --ink:#E4EBE3; --muted:#9BA89F; --accent:#8CC4A0; --accent-ink:#10231A;
+    --panel:rgba(24,31,27,.93); --line:#34423A; --field:#1D2621;
+    --warn-bg:#3A2E16; --warn-ink:#F2CC80; --err-bg:#3D1D18; --err-ink:#F3B0A4;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141A17; --ink:#E4EBE3; --muted:#9BA89F; --accent:#8CC4A0; --accent-ink:#10231A;
+  --panel:rgba(24,31,27,.93); --line:#34423A; --field:#1D2621;
+  --warn-bg:#3A2E16; --warn-ink:#F2CC80; --err-bg:#3D1D18; --err-ink:#F3B0A4;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-size:17px;line-height:1.45;overflow:hidden}
+#stage{position:fixed;inset:0;touch-action:none;cursor:grab}
+#stage.dragging{cursor:grabbing}
+#stage canvas{display:block;width:100%;height:100%}
+
+/* Empty state */
+#empty{position:fixed;inset:0;display:grid;place-items:center;padding:24px;
+  padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--bg)}
+.intro{width:min(560px,100%)}
+.frame{position:relative;width:100%;aspect-ratio:2/1;border:2px solid var(--ink);border-radius:6px;margin-bottom:28px}
+.frame::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--muted)}
+.frame span{position:absolute;right:12px;bottom:8px;font-size:15px;color:var(--muted)}
+.frame b{position:absolute;left:14px;top:12px;font-size:clamp(28px,6vw,44px);line-height:1.05;letter-spacing:-.01em}
+.intro p{margin:0 0 20px;max-width:46ch}
+.intro .small{font-size:15px;color:var(--muted);margin-top:14px}
+
+/* Panel */
+#panel{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  width:min(760px,calc(100% - 24px));max-height:calc(100% - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.head p{margin:0}
+#fname{font-weight:700;word-break:break-all}
+.muted{color:var(--muted)}
+.hint{margin:6px 0 0;font-size:15px;color:var(--muted)}
+.notice{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn-ink);font-size:15px}
+.notice.error{background:var(--err-bg);color:var(--err-ink)}
+#controls{margin-top:14px;display:grid;gap:16px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend,.lab{display:block;font-weight:700;margin-bottom:8px;padding:0}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;margin:0}
+.seg span{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:var(--field);cursor:pointer}
+.seg input:checked + span{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg input:focus-visible + span{outline:3px solid var(--accent);outline-offset:2px}
+.check{display:inline-flex;align-items:center;gap:10px;margin-top:10px;min-height:44px;cursor:pointer}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
+.check.off{opacity:.45}
+.range-row{display:flex;justify-content:space-between;align-items:baseline}
+input[type=range]{width:100%;height:44px;accent-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:560px){.two{grid-template-columns:1fr}}
+.inline{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+input[type=number]{width:120px;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit}
+.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 22px;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}
+.btn.primary{background:var(--accent);color:var(--accent-ink);min-width:160px}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.secondary{background:var(--field);color:var(--ink);border-color:var(--line)}
+.ghost{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0 8px;cursor:pointer;white-space:nowrap}
+button:focus-visible,.btn:focus-visible,input[type=number]:focus-visible,input[type=range]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#panel.collapsed #controls,#panel.collapsed .actions,#panel.collapsed #vrnote,#panel.collapsed #notice{display:none}
+#drop{position:fixed;inset:0;display:none;place-items:center;background:rgba(53,102,74,.25);border:3px dashed var(--accent);font-size:22px;font-weight:700;color:var(--ink);pointer-events:none}
+body.over #drop{display:grid}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Panorama preview. Drag to look around."></div>
+
+<section id="empty">
+  <div class="intro">
+    <div class="frame" aria-hidden="true"><b>Panorama viewer</b><span>2 : 1</span></div>
+    <p>Open a 360° panorama from this headset or computer, then press Enter VR to stand inside it.</p>
+    <button class="btn primary" id="openBtn" type="button">Open panorama</button>
+    <p class="small">Works with 2:1 images (flat 360°) and 1:1 top–bottom 3D images. Your file stays on this device.</p>
+    <p id="emptyErr" class="notice error" hidden></p>
+  </div>
+</section>
+
+<section id="panel" hidden aria-label="Viewer controls">
+  <div class="head">
+    <div><p id="fname"></p><p id="fmeta" class="muted"></p></div>
+    <button id="toggle" class="ghost" type="button" aria-expanded="true">Hide controls</button>
+  </div>
+  <p id="notice" class="notice" hidden></p>
+  <div id="controls">
+    <fieldset>
+      <legend>Image type</legend>
+      <div class="seg">
+        <label><input type="radio" name="fmt" value="mono" checked><span>360° flat (2D)</span></label>
+        <label><input type="radio" name="fmt" value="tb"><span>360° 3D top–bottom</span></label>
+        <label><input type="radio" name="fmt" value="sbs"><span>360° 3D side-by-side</span></label>
+      </div>
+      <label class="check off" id="swapWrap"><input type="checkbox" id="swap" disabled> Swap left and right eye</label>
+    </fieldset>
+
+    <div>
+      <div class="range-row"><label class="lab" for="yaw">Starting direction</label><output id="yawOut" for="yaw">0°</output></div>
+      <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
+      <p class="hint">Turns the scene so the view you want is in front of you when VR starts. Use the same value for every condition.</p>
+    </div>
+
+    <div class="two">
+      <div>
+        <span class="lab">Background sound</span>
+        <div class="inline">
+          <button class="btn secondary" id="audioBtn" type="button">Add sound</button>
+          <span id="aname" class="muted">None</span>
+          <button id="aplay" class="ghost" type="button" hidden>Play</button>
+          <button id="aremove" class="ghost" type="button" hidden>Remove</button>
+        </div>
+        <p class="hint">Loops while you're in VR.</p>
+      </div>
+      <div>
+        <label class="lab" for="dur">End VR automatically after</label>
+        <div class="inline"><input type="number" id="dur" min="0" step="1" placeholder="Off" inputmode="numeric"><span class="muted">seconds</span></div>
+        <p class="hint">Leave empty to stay until you exit.</p>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn secondary" id="openBtn2" type="button">Open another</button>
+    <button class="btn primary" id="enter" type="button" disabled>Enter VR</button>
+  </div>
+  <p id="vrnote" class="hint"></p>
+</section>
+
+<input type="file" id="fileIn" accept="image/*" class="vh" tabindex="-1" aria-hidden="true">
+<input type="file" id="audioIn" accept="audio/*" class="vh" tabindex="-1" aria-hidden="true">
+<div id="drop">Drop the panorama to open it</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const stage = $('#stage');
+  let renderer, scene, camera, group, mat, meshL, meshR, baseGeom, texture = null;
+  let eyeGeoms = [];
+  let lon = 0, lat = 0, yawDeg = 0, format = 'mono', swap = false;
+  let audio = null, audioURL = null, imgURL = null, endTimer = null, xrOK = false;
+
+  // ---------- 3D setup ----------
+  function init(){
+    renderer = new THREE.WebGLRenderer({antialias:false});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(stage.clientWidth, stage.clientHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local');
+    stage.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, stage.clientWidth / stage.clientHeight, 0.1, 1000);
+    camera.layers.enable(1); // 2D preview shows the left-eye image
+
+    group = new THREE.Group();
+    group.visible = false;
+    scene.add(group);
+
+    baseGeom = new THREE.SphereGeometry(100, 128, 64);
+    baseGeom.scale(-1, 1, 1);
+    mat = new THREE.MeshBasicMaterial({color:0xffffff});
+    meshL = new THREE.Mesh(baseGeom, mat); meshL.layers.set(1); // left eye
+    meshR = new THREE.Mesh(baseGeom, mat); meshR.layers.set(2); // right eye
+    group.add(meshL, meshR);
+    applyYaw();
+
+    renderer.setAnimationLoop(render);
+    window.addEventListener('resize', onResize);
+  }
+
+  function onResize(){
+    if (renderer.xr.isPresenting) return;
+    renderer.setSize(stage.clientWidth, stage.clientHeight);
+    camera.aspect = stage.clientWidth / stage.clientHeight;
+    camera.updateProjectionMatrix();
+  }
+
+  function render(){
+    if (!renderer.xr.isPresenting){
+      const lo = THREE.MathUtils.degToRad(lon), la = THREE.MathUtils.degToRad(lat);
+      camera.lookAt(Math.sin(lo) * Math.cos(la), Math.sin(la), -Math.cos(lo) * Math.cos(la));
+    }
+    renderer.render(scene, camera);
+  }
+
+  // Image centre faces forward (-z) at 0°. Positive values turn the view to the right.
+  function applyYaw(){ group.rotation.y = -Math.PI / 2 + THREE.MathUtils.degToRad(yawDeg); }
+
+  function eyeGeom(su, ou, sv, ov){
+    const g = baseGeom.clone();
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su + ou, uv.getY(i) * sv + ov);
+    uv.needsUpdate = true;
+    eyeGeoms.push(g);
+    return g;
+  }
+
+  function applyFormat(){
+    eyeGeoms.forEach(g => g.dispose()); eyeGeoms = [];
+    let L = baseGeom, R = baseGeom;
+    if (format === 'tb'){
+      const top = eyeGeom(1, 0, .5, .5), bottom = eyeGeom(1, 0, .5, 0);
+      L = swap ? bottom : top; R = swap ? top : bottom;
+    } else if (format === 'sbs'){
+      const left = eyeGeom(.5, 0, 1, 0), right = eyeGeom(.5, .5, 1, 0);
+      L = swap ? right : left; R = swap ? left : right;
+    }
+    meshL.geometry = L; meshR.geometry = R;
+    const is3D = format !== 'mono';
+    $('#swap').disabled = !is3D;
+    $('#swapWrap').classList.toggle('off', !is3D);
+  }
+
+  // ---------- Look around in 2D preview ----------
+  let drag = null;
+  stage.addEventListener('pointerdown', e => {
+    drag = {x:e.clientX, y:e.clientY, lon, lat};
+    stage.setPointerCapture(e.pointerId); stage.classList.add('dragging');
+  });
+  stage.addEventListener('pointermove', e => {
+    if (!drag) return;
+    lon = drag.lon - (e.clientX - drag.x) * 0.15;
+    lat = Math.max(-85, Math.min(85, drag.lat + (e.clientY - drag.y) * 0.15));
+  });
+  const endDrag = () => { drag = null; stage.classList.remove('dragging'); };
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  // ---------- Loading the panorama ----------
+  const near = (a, b) => Math.abs(a - b) / b < 0.03;
+
+  function openFile(file){
+    if (!file) return;
+    if (file.type && !file.type.startsWith('image/')){ showLoadError('This file isn\u2019t an image. Choose a JPG or PNG panorama.'); return; }
+    if (imgURL) URL.revokeObjectURL(imgURL);
+    imgURL = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => useImage(img, file.name);
+    img.onerror = () => showLoadError('This image couldn\u2019t be opened. Save it as JPG or PNG and try again.');
+    img.src = imgURL;
+  }
+
+  function showLoadError(msg){
+    if ($('#panel').hidden){ const el = $('#emptyErr'); el.textContent = msg; el.hidden = false; }
+    else setNotice(msg, true);
+  }
+
+  function setNotice(msg, isError){
+    const n = $('#notice');
+    if (!msg){ n.hidden = true; return; }
+    n.textContent = msg; n.hidden = false;
+    n.classList.toggle('error', !!isError);
+  }
+
+  function useImage(img, name){
+    const w = img.naturalWidth, h = img.naturalHeight, r = w / h;
+    const max = renderer.capabilities.maxTextureSize;
+    let source = img, resized = false;
+    if (w > max || h > max){
+      const s = Math.min(max / w, max / h);
+      const c = document.createElement('canvas');
+      c.width = Math.floor(w * s); c.height = Math.floor(h * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      source = c; resized = true;
+    }
+    if (texture) texture.dispose();
+    texture = new THREE.Texture(source);
+    texture.encoding = THREE.sRGBEncoding;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.needsUpdate = true;
+    mat.map = texture; mat.needsUpdate = true;
+
+    let detected = 'mono', note = '';
+    if (near(r, 2)) detected = 'mono';
+    else if (near(r, 1)) detected = 'tb';
+    else if (near(r, 4)) detected = 'sbs';
+    else note = `This image is ${w} × ${h}, not 2:1, so it isn\u2019t a full 360° panorama. It will look stretched or zoomed in VR. Export it again at 2:1, for example 8192 × 4096.`;
+    if (resized) note = (note ? note + ' ' : '') + `It was reduced to ${source.width} × ${source.height} to fit this device\u2019s graphics limit.`;
+    setFormat(detected);
+
+    $('#fname').textContent = name;
+    const label = {mono:'360° flat (2D)', tb:'360° 3D top–bottom', sbs:'360° 3D side-by-side'}[detected];
+    $('#fmeta').textContent = `${w} × ${h}` + (note && !near(r,2) && !near(r,1) && !near(r,4) ? '' : ` \u2014 detected as ${label}`);
+    setNotice(note, false);
+
+    lon = 0; lat = 0;
+    group.visible = true;
+    $('#empty').hidden = true;
+    $('#panel').hidden = false;
+    $('#emptyErr').hidden = true;
+    updateEnter();
+  }
+
+  function setFormat(f){
+    format = f;
+    document.querySelectorAll('input[name=fmt]').forEach(i => { i.checked = i.value === f; });
+    applyFormat();
+  }
+
+  // ---------- Controls ----------
+  $('#openBtn').addEventListener('click', () => $('#fileIn').click());
+  $('#openBtn2').addEventListener('click', () => $('#fileIn').click());
+  $('#fileIn').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
+  document.querySelectorAll('input[name=fmt]').forEach(i => i.addEventListener('change', () => { format = i.value; applyFormat(); }));
+  $('#swap').addEventListener('change', e => { swap = e.target.checked; applyFormat(); });
+  $('#yaw').addEventListener('input', e => {
+    yawDeg = +e.target.value; $('#yawOut').textContent = yawDeg + '°';
+    applyYaw(); lon = 0; lat = 0;
+  });
+  $('#toggle').addEventListener('click', e => {
+    const p = $('#panel'); const collapsed = p.classList.toggle('collapsed');
+    e.target.textContent = collapsed ? 'Show controls' : 'Hide controls';
+    e.target.setAttribute('aria-expanded', String(!collapsed));
+  });
+
+  // Sound
+  $('#audioBtn').addEventListener('click', () => $('#audioIn').click());
+  $('#audioIn').addEventListener('change', e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    removeAudio();
+    audioURL = URL.createObjectURL(f);
+    audio = new Audio(audioURL); audio.loop = true;
+    $('#aname').textContent = f.name;
+    $('#aplay').hidden = false; $('#aremove').hidden = false;
+    $('#audioBtn').textContent = 'Change sound';
+  });
+  $('#aplay').addEventListener('click', () => {
+    if (!audio) return;
+    if (audio.paused){ audio.play().catch(()=>{}); $('#aplay').textContent = 'Stop'; }
+    else { audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
+  });
+  $('#aremove').addEventListener('click', removeAudio);
+  function removeAudio(){
+    if (audio){ audio.pause(); audio = null; }
+    if (audioURL){ URL.revokeObjectURL(audioURL); audioURL = null; }
+    $('#aname').textContent = 'None';
+    $('#aplay').hidden = true; $('#aplay').textContent = 'Play';
+    $('#aremove').hidden = true;
+    $('#audioBtn').textContent = 'Add sound';
+  }
+
+  // Drag and drop (computer)
+  ['dragenter','dragover'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); document.body.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); document.body.classList.remove('over'); }));
+  window.addEventListener('drop', e => openFile(e.dataTransfer.files[0]));
+
+  // ---------- VR ----------
+  let xrStatus = 'checking';
+  const framed = (() => { try { return window.self !== window.top; } catch(e){ return true; } })();
+  const xrMessages = {
+    nobrowser: 'This browser has no VR support. Open the page in the Quest Browser.',
+    blocked: 'VR is blocked because this page is shown inside another page. Open the viewer file from its own web address (see the instructions in chat).',
+    nohmd: 'No headset detected. On a computer you can still preview the image here; use the Quest Browser for VR.',
+    ok: ''
+  };
+
+  function updateEnter(){
+    $('#enter').disabled = !texture;
+    $('#vrnote').textContent = xrMessages[xrStatus] || '';
+  }
+
+  async function checkXR(){
+    const policy = document.permissionsPolicy || document.featurePolicy;
+    const policyBlocks = policy && typeof policy.allowsFeature === 'function' && !policy.allowsFeature('xr-spatial-tracking');
+    if (!navigator.xr) xrStatus = 'nobrowser';
+    else if (policyBlocks) xrStatus = 'blocked';
+    else {
+      try { xrOK = await navigator.xr.isSessionSupported('immersive-vr'); }
+      catch(e){ xrOK = false; }
+      xrStatus = xrOK ? 'ok' : (framed ? 'blocked' : 'nohmd');
+    }
+    updateEnter();
+  }
+
+  $('#enter').addEventListener('click', async () => {
+    if (!texture) return;
+    if (!navigator.xr){ setNotice(xrMessages.nobrowser, true); return; }
+    if (audio){ audio.currentTime = 0; audio.play().catch(()=>{}); $('#aplay').textContent = 'Stop'; }
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', {optionalFeatures:['local-floor']});
+      session.addEventListener('end', onSessionEnd);
+      await renderer.xr.setSession(session);
+      const secs = parseFloat($('#dur').value);
+      if (secs > 0) endTimer = setTimeout(() => session.end().catch(()=>{}), secs * 1000);
+      setNotice('', false);
+    } catch(err){
+      if (audio){ audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
+      const blocked = err && (err.name === 'SecurityError' || err.name === 'NotAllowedError');
+      setNotice(blocked
+        ? 'The browser blocked VR on this page. Open the page on its own in the Quest Browser, not inside another app, and try again.'
+        : 'VR couldn\u2019t start' + (err && err.message ? ': ' + err.message : '.') + ' Close other VR apps and try again.', true);
+    }
+  });
+
+  function onSessionEnd(){
+    clearTimeout(endTimer); endTimer = null;
+    if (audio){ audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
+    onResize();
+  }
+
+  init();
+  checkXR();
+})();
+</script>
+</body>
+</html>
