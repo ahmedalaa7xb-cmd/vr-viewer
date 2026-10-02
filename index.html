@@ -144,6 +144,15 @@ body.over #drop{display:grid}
         <label class="check" style="margin-top:8px"><input type="checkbox" id="shuffle"> Random order each time</label>
       </div>
       <div>
+        <label class="lab" for="quality">VR quality</label>
+        <select id="quality" style="display:block;margin-top:6px;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit">
+          <option value="1">Smooth (best for older headsets)</option>
+          <option value="1.2">Balanced (recommended)</option>
+          <option value="1.5">Sharp (may flicker or show black edges)</option>
+        </select>
+        <p class="hint">If you see black edges when turning your head, the headset can’t keep up: choose a smoother setting.</p>
+      </div>
+      <div>
         <div class="range-row"><label class="lab" for="dist">Image distance in VR</label><output id="distOut" for="dist">100 m</output></div>
         <input type="range" id="dist" min="2" max="100" step="1" value="100">
         <p class="hint">Flat 360° images can feel oversized in the headset. A shorter distance makes the scene feel smaller and closer. Try 4–8 m, then use the same value for every scene and participant.</p>
@@ -174,7 +183,7 @@ body.over #drop{display:grid}
 
   // ---------- State ----------
   let items = [];           // {id, name, image:Blob, audio:Blob|null, audioName, duration, horizon}
-  let yawDeg = 0, gapSec = 2, shuffle = false, sceneDist = 100;
+  let yawDeg = 0, gapSec = 2, shuffle = false, sceneDist = 100, quality = 1.2;
   let previewId = null;
   let audioTarget = null;
 
@@ -202,12 +211,12 @@ body.over #drop{display:grid}
   const clean = it => ({id:it.id, name:it.name, image:it.image, audio:it.audio, audioName:it.audioName, duration:it.duration, horizon:it.horizon});
   const saveItem = it => tx('items', 'readwrite', s => s.put(clean(it)));
   const deleteItem = id => tx('items', 'readwrite', s => s.delete(id));
-  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle, sceneDist}, 'settings'));
+  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle, sceneDist, quality}, 'settings'));
   async function loadAll(){
     const all = await tx('items', 'readonly', s => s.getAll()) || [];
     const meta = await tx('meta', 'readonly', s => s.get('settings'));
     if (meta){
-      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle; sceneDist = meta.sceneDist || 100;
+      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle; sceneDist = meta.sceneDist || 100; quality = meta.quality || 1.2;
       const pos = new Map((meta.order || []).map((id, i) => [id, i]));
       all.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
     }
@@ -219,14 +228,13 @@ body.over #drop{display:grid}
   let lon = 0, lat = 0, horizonDeg = 0, format = 'mono';
 
   function init3D(){
-    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer = new THREE.WebGLRenderer({antialias:false});
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(stage.clientWidth, stage.clientHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.setClearColor(0x000000);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
-    renderer.xr.setFramebufferScaleFactor(1.5); // sharper than the headset default
     renderer.xr.setFoveation(0);                 // no blurred edges
     stage.appendChild(renderer.domElement);
 
@@ -285,7 +293,8 @@ body.over #drop{display:grid}
     const p = new Promise((res, rej) => {
       const url = URL.createObjectURL(it.image);
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
+        try { await img.decode(); } catch(e){}
         const w = img.naturalWidth, h = img.naturalHeight, max = renderer.capabilities.maxTextureSize;
         let src = img;
         if (w > max || h > max){
@@ -318,6 +327,7 @@ body.over #drop{display:grid}
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.needsUpdate = true;
+    try { renderer.initTexture(texture); } catch(e){}
     mat.map = texture; mat.needsUpdate = true;
     const f = detectFormat(d.w, d.h);
     format = f || 'mono';
@@ -493,6 +503,7 @@ body.over #drop{display:grid}
   $('#shuffle').addEventListener('change', e => { shuffle = e.target.checked; saveMeta(); });
   $('#dist').addEventListener('input', e => { sceneDist = +e.target.value; $('#distOut').textContent = sceneDist + ' m'; applyDist(); });
   $('#dist').addEventListener('change', saveMeta);
+  $('#quality').addEventListener('change', e => { quality = parseFloat(e.target.value) || 1.2; saveMeta(); });
   $('#toggle').addEventListener('click', e => {
     const c = $('#panel').classList.toggle('collapsed');
     e.target.textContent = c ? 'Show controls' : 'Hide controls'; e.target.setAttribute('aria-expanded', String(!c));
@@ -549,6 +560,7 @@ body.over #drop{display:grid}
       return;
     }
     session.addEventListener('end', () => { session = null; if (cancelWait) cancelWait(); stopAudio(); onResize(); });
+    renderer.xr.setFramebufferScaleFactor(quality);
     await renderer.xr.setSession(session);
     renderer.xr.setFoveation(0);
     setNotice(order.length > 1 ? 'Last played order: ' + order.map(o => o.name).join(' \u2192 ') : '', 'ok');
@@ -582,7 +594,7 @@ body.over #drop{display:grid}
     await loadAll();
     $('#yaw').value = yawDeg; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw();
     $('#gap').value = gapSec; $('#shuffle').checked = shuffle;
-    $('#dist').value = sceneDist; $('#distOut').textContent = sceneDist + ' m'; applyDist();
+    $('#quality').value = String(quality); $('#dist').value = sceneDist; $('#distOut').textContent = sceneDist + ' m'; applyDist();
     if (items.length){ showPanel(); preview(items[0]); }
     checkXR();
   })();
