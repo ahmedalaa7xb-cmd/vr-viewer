@@ -143,6 +143,11 @@ body.over #drop{display:grid}
         <div class="inline"><input type="number" id="gap" min="0" step="0.5" value="2" inputmode="decimal"><span class="muted">seconds</span></div>
         <label class="check" style="margin-top:8px"><input type="checkbox" id="shuffle"> Random order each time</label>
       </div>
+      <div>
+        <div class="range-row"><label class="lab" for="dist">Image distance in VR</label><output id="distOut" for="dist">100 m</output></div>
+        <input type="range" id="dist" min="2" max="100" step="1" value="100">
+        <p class="hint">Flat 360° images can feel oversized in the headset. A shorter distance makes the scene feel smaller and closer. Try 4–8 m, then use the same value for every scene and participant.</p>
+      </div>
     </div>
 
     <div class="actions">
@@ -169,7 +174,7 @@ body.over #drop{display:grid}
 
   // ---------- State ----------
   let items = [];           // {id, name, image:Blob, audio:Blob|null, audioName, duration, horizon}
-  let yawDeg = 0, gapSec = 2, shuffle = false;
+  let yawDeg = 0, gapSec = 2, shuffle = false, sceneDist = 100;
   let previewId = null;
   let audioTarget = null;
 
@@ -197,12 +202,12 @@ body.over #drop{display:grid}
   const clean = it => ({id:it.id, name:it.name, image:it.image, audio:it.audio, audioName:it.audioName, duration:it.duration, horizon:it.horizon});
   const saveItem = it => tx('items', 'readwrite', s => s.put(clean(it)));
   const deleteItem = id => tx('items', 'readwrite', s => s.delete(id));
-  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle}, 'settings'));
+  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle, sceneDist}, 'settings'));
   async function loadAll(){
     const all = await tx('items', 'readonly', s => s.getAll()) || [];
     const meta = await tx('meta', 'readonly', s => s.get('settings'));
     if (meta){
-      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle;
+      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle; sceneDist = meta.sceneDist || 100;
       const pos = new Map((meta.order || []).map((id, i) => [id, i]));
       all.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
     }
@@ -250,6 +255,8 @@ body.over #drop{display:grid}
     camera.aspect = stage.clientWidth / stage.clientHeight; camera.updateProjectionMatrix();
   }
   function applyYaw(){ group.rotation.y = -Math.PI / 2 + THREE.MathUtils.degToRad(yawDeg); }
+  // Distance of the image sphere in VR. Closer feels smaller; the 2D preview is unaffected.
+  function applyDist(){ group.scale.setScalar(sceneDist / 100); }
 
   // Horizon correction: positive values raise a horizon that sits too low in the image.
   function remapV(y){
@@ -484,6 +491,8 @@ body.over #drop{display:grid}
   $('#yaw').addEventListener('change', saveMeta);
   $('#gap').addEventListener('change', e => { gapSec = Math.max(0, parseFloat(e.target.value) || 0); e.target.value = gapSec; saveMeta(); });
   $('#shuffle').addEventListener('change', e => { shuffle = e.target.checked; saveMeta(); });
+  $('#dist').addEventListener('input', e => { sceneDist = +e.target.value; $('#distOut').textContent = sceneDist + ' m'; applyDist(); });
+  $('#dist').addEventListener('change', saveMeta);
   $('#toggle').addEventListener('click', e => {
     const c = $('#panel').classList.toggle('collapsed');
     e.target.textContent = c ? 'Show controls' : 'Hide controls'; e.target.setAttribute('aria-expanded', String(!c));
@@ -573,6 +582,7 @@ body.over #drop{display:grid}
     await loadAll();
     $('#yaw').value = yawDeg; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw();
     $('#gap').value = gapSec; $('#shuffle').checked = shuffle;
+    $('#dist').value = sceneDist; $('#distOut').textContent = sceneDist + ' m'; applyDist();
     if (items.length){ showPanel(); preview(items[0]); }
     checkXR();
   })();
