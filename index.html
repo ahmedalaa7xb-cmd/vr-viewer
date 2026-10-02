@@ -10,7 +10,7 @@
 <style>
 :root{
   --bg:#E7EBE4; --ink:#1F2A24; --muted:#56635A; --accent:#35664A; --accent-ink:#FFFFFF;
-  --panel:rgba(248,250,246,.94); --line:#C5CEC3; --field:#FFFFFF;
+  --panel:rgba(248,250,246,.95); --line:#C5CEC3; --field:#FFFFFF; --row:#F1F4EF;
   --warn-bg:#F5E6C8; --warn-ink:#6B4507; --err-bg:#F4D9D4; --err-ink:#7A2418;
   --radius:14px;
   box-sizing:border-box;
@@ -22,13 +22,13 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --bg:#141A17; --ink:#E4EBE3; --muted:#9BA89F; --accent:#8CC4A0; --accent-ink:#10231A;
-    --panel:rgba(24,31,27,.93); --line:#34423A; --field:#1D2621;
+    --panel:rgba(24,31,27,.95); --line:#34423A; --field:#1D2621; --row:#1F2823;
     --warn-bg:#3A2E16; --warn-ink:#F2CC80; --err-bg:#3D1D18; --err-ink:#F3B0A4;
   }
 }
 :root[data-theme="dark"]{
   --bg:#141A17; --ink:#E4EBE3; --muted:#9BA89F; --accent:#8CC4A0; --accent-ink:#10231A;
-  --panel:rgba(24,31,27,.93); --line:#34423A; --field:#1D2621;
+  --panel:rgba(24,31,27,.95); --line:#34423A; --field:#1D2621; --row:#1F2823;
   --warn-bg:#3A2E16; --warn-ink:#F2CC80; --err-bg:#3D1D18; --err-ink:#F3B0A4;
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -38,7 +38,6 @@ body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-size:17px;l
 #stage.dragging{cursor:grabbing}
 #stage canvas{display:block;width:100%;height:100%}
 
-/* Empty state */
 #empty{position:fixed;inset:0;display:grid;place-items:center;padding:24px;
   padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--bg)}
 .intro{width:min(560px,100%)}
@@ -49,48 +48,63 @@ body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-size:17px;l
 .intro p{margin:0 0 20px;max-width:46ch}
 .intro .small{font-size:15px;color:var(--muted);margin-top:14px}
 
-/* Panel */
 #panel{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));
-  width:min(760px,calc(100% - 24px));max-height:calc(100% - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  width:min(880px,calc(100% - 24px));max-height:calc(78% - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
   overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
-.head p{margin:0}
-#fname{font-weight:700;word-break:break-all}
+.head{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.head h1{font-size:19px;margin:0}
 .muted{color:var(--muted)}
 .hint{margin:6px 0 0;font-size:15px;color:var(--muted)}
 .notice{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn-ink);font-size:15px}
 .notice.error{background:var(--err-bg);color:var(--err-ink)}
-#controls{margin-top:14px;display:grid;gap:16px}
-fieldset{border:0;margin:0;padding:0;min-width:0}
-legend,.lab{display:block;font-weight:700;margin-bottom:8px;padding:0}
-.seg{display:flex;flex-wrap:wrap;gap:8px}
-.seg label{position:relative}
-.seg input{position:absolute;opacity:0;inset:0;margin:0}
-.seg span{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:999px;background:var(--field);cursor:pointer}
-.seg input:checked + span{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.seg input:focus-visible + span{outline:3px solid var(--accent);outline-offset:2px}
-.check{display:inline-flex;align-items:center;gap:10px;margin-top:10px;min-height:44px;cursor:pointer}
-.check input{width:22px;height:22px;accent-color:var(--accent)}
-.check.off{opacity:.45}
+.notice.ok{background:var(--row);color:var(--ink)}
+#body{margin-top:12px}
+
+#list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.scene{background:var(--row);border:1px solid var(--line);border-radius:12px;padding:12px}
+.scene.current{outline:3px solid var(--accent);outline-offset:-1px}
+.scene-top{display:flex;gap:10px;align-items:center}
+.num{flex:none;width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px}
+.name{flex:1;min-width:0;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit;font-weight:700}
+.icon-btn{flex:none;min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit;font-size:18px;cursor:pointer}
+.icon-btn:disabled{opacity:.35;cursor:not-allowed}
+.scene-grid{display:grid;grid-template-columns:auto auto 1fr;gap:10px 16px;align-items:end;margin-top:10px}
+@media (max-width:640px){.scene-grid{grid-template-columns:1fr 1fr}}
+.field label,.field .lab{display:block;font-size:14px;font-weight:700;margin-bottom:4px}
+.field input[type=number]{width:110px;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit}
+.sound{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sound .fname{font-size:15px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scene-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-block;margin-top:8px;font-size:14px;padding:4px 10px;border-radius:999px;background:var(--warn-bg);color:var(--warn-ink)}
+
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+@media (max-width:640px){.settings{grid-template-columns:1fr}}
 .range-row{display:flex;justify-content:space-between;align-items:baseline}
+.lab{font-weight:700}
 input[type=range]{width:100%;height:44px;accent-color:var(--accent)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:560px){.two{grid-template-columns:1fr}}
+.check{display:inline-flex;align-items:center;gap:10px;min-height:44px;cursor:pointer}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
 .inline{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-input[type=number]{width:120px;min-height:48px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit}
+.settings input[type=number]{width:110px;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font:inherit}
+
 .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 22px;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}
-.btn.primary{background:var(--accent);color:var(--accent-ink);min-width:160px}
-.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;border:1px solid transparent}
+.btn.primary{background:var(--accent);color:var(--accent-ink);min-height:52px;padding:0 24px}
+.btn.primary:disabled,.btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.secondary{background:var(--field);color:var(--ink);border-color:var(--line)}
+.btn.small{min-height:44px;padding:0 14px;font-size:15px}
 .ghost{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;min-height:44px;padding:0 8px;cursor:pointer;white-space:nowrap}
-button:focus-visible,.btn:focus-visible,input[type=number]:focus-visible,input[type=range]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-#panel.collapsed #controls,#panel.collapsed .actions,#panel.collapsed #vrnote,#panel.collapsed #notice{display:none}
+#panel.collapsed #body{display:none}
+
+#zoom{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:12px;display:flex;gap:6px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#zoom[hidden]{display:none}
+#zoom button{min-width:48px;min-height:48px;border-radius:999px;border:1px solid var(--line);background:var(--field);color:var(--ink);font:inherit;font-weight:700;font-size:20px;cursor:pointer}
+#zoom #zoomReset{font-size:15px;padding:0 14px}
 #drop{position:fixed;inset:0;display:none;place-items:center;background:rgba(53,102,74,.25);border:3px dashed var(--accent);font-size:22px;font-weight:700;color:var(--ink);pointer-events:none}
 body.over #drop{display:grid}
-@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 </style>
 </head>
 <body>
@@ -99,339 +113,469 @@ body.over #drop{display:grid}
 <section id="empty">
   <div class="intro">
     <div class="frame" aria-hidden="true"><b>Panorama viewer</b><span>2 : 1</span></div>
-    <p>Open a 360° panorama from this headset or computer, then press Enter VR to stand inside it.</p>
-    <button class="btn primary" id="openBtn" type="button">Open panorama</button>
-    <p class="small">Works with 2:1 images (flat 360°) and 1:1 top–bottom 3D images. Your file stays on this device.</p>
+    <p>Add your 360° panoramas, set how long each one shows and its sound, then play one scene or the whole sequence in VR.</p>
+    <button class="btn primary" id="openBtn" type="button">Add panoramas</button>
+    <p class="small">You can select several images at once. They stay saved in this browser on this device.</p>
     <p id="emptyErr" class="notice error" hidden></p>
   </div>
 </section>
 
-<section id="panel" hidden aria-label="Viewer controls">
+<section id="panel" hidden aria-label="Scenes and playback">
   <div class="head">
-    <div><p id="fname"></p><p id="fmeta" class="muted"></p></div>
+    <h1>Scenes</h1>
     <button id="toggle" class="ghost" type="button" aria-expanded="true">Hide controls</button>
   </div>
-  <p id="notice" class="notice" hidden></p>
-  <div id="controls">
-    <fieldset>
-      <legend>Image type</legend>
-      <div class="seg">
-        <label><input type="radio" name="fmt" value="mono" checked><span>360° flat (2D)</span></label>
-        <label><input type="radio" name="fmt" value="tb"><span>360° 3D top–bottom</span></label>
-        <label><input type="radio" name="fmt" value="sbs"><span>360° 3D side-by-side</span></label>
-      </div>
-      <label class="check off" id="swapWrap"><input type="checkbox" id="swap" disabled> Swap left and right eye</label>
-    </fieldset>
-
-    <div>
-      <div class="range-row"><label class="lab" for="yaw">Starting direction</label><output id="yawOut" for="yaw">0°</output></div>
-      <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
-      <p class="hint">Turns the scene so the view you want is in front of you when VR starts. Use the same value for every condition.</p>
+  <div id="body">
+    <p id="notice" class="notice" hidden></p>
+    <ol id="list"></ol>
+    <div class="actions" style="justify-content:flex-start;margin-top:12px">
+      <button class="btn secondary small" id="addMore" type="button">Add panoramas</button>
     </div>
 
-    <div class="two">
+    <div class="settings">
       <div>
-        <span class="lab">Background sound</span>
-        <div class="inline">
-          <button class="btn secondary" id="audioBtn" type="button">Add sound</button>
-          <span id="aname" class="muted">None</span>
-          <button id="aplay" class="ghost" type="button" hidden>Play</button>
-          <button id="aremove" class="ghost" type="button" hidden>Remove</button>
-        </div>
-        <p class="hint">Loops while you're in VR.</p>
+        <div class="range-row"><label class="lab" for="yaw">Starting direction</label><output id="yawOut" for="yaw">0°</output></div>
+        <input type="range" id="yaw" min="-180" max="180" step="1" value="0">
+        <p class="hint">Which part of the scene is in front when each scene starts. Applies to all scenes.</p>
       </div>
       <div>
-        <label class="lab" for="dur">End VR automatically after</label>
-        <div class="inline"><input type="number" id="dur" min="0" step="1" placeholder="Off" inputmode="numeric"><span class="muted">seconds</span></div>
-        <p class="hint">Leave empty to stay until you exit.</p>
+        <label class="lab" for="gap">Black pause between scenes</label>
+        <div class="inline"><input type="number" id="gap" min="0" step="0.5" value="2" inputmode="decimal"><span class="muted">seconds</span></div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="shuffle"> Random order each time</label>
       </div>
     </div>
+
+    <div class="actions">
+      <button class="btn primary" id="playAll" type="button" disabled>Play all in VR</button>
+    </div>
+    <p id="vrnote" class="hint"></p>
   </div>
-  <div class="actions">
-    <button class="btn secondary" id="openBtn2" type="button">Open another</button>
-    <button class="btn primary" id="enter" type="button" disabled>Enter VR</button>
-  </div>
-  <p id="vrnote" class="hint"></p>
 </section>
 
-<input type="file" id="fileIn" accept="image/*" class="vh" tabindex="-1" aria-hidden="true">
+<div id="zoom" hidden aria-label="Preview zoom">
+  <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
+  <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+  <button type="button" id="zoomReset">Reset</button>
+</div>
+<input type="file" id="fileIn" accept="image/*" multiple class="vh" tabindex="-1" aria-hidden="true">
 <input type="file" id="audioIn" accept="audio/*" class="vh" tabindex="-1" aria-hidden="true">
-<div id="drop">Drop the panorama to open it</div>
+<div id="drop">Drop panoramas to add them</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
   const stage = $('#stage');
-  let renderer, scene, camera, group, mat, meshL, meshR, baseGeom, texture = null;
-  let eyeGeoms = [];
-  let lon = 0, lat = 0, yawDeg = 0, format = 'mono', swap = false;
-  let audio = null, audioURL = null, imgURL = null, endTimer = null, xrOK = false;
 
-  // ---------- 3D setup ----------
-  function init(){
-    renderer = new THREE.WebGLRenderer({antialias:false});
+  // ---------- State ----------
+  let items = [];           // {id, name, image:Blob, audio:Blob|null, audioName, duration, horizon}
+  let yawDeg = 0, gapSec = 2, shuffle = false;
+  let previewId = null;
+  let audioTarget = null;
+
+  // ---------- Saving in this browser (IndexedDB) ----------
+  let db = null;
+  function openDB(){
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('panorama-viewer', 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore('items', {keyPath:'id'}); r.result.createObjectStore('meta'); };
+        r.onsuccess = () => { db = r.result; res(); };
+        r.onerror = () => res();
+      } catch(e){ res(); }
+    });
+  }
+  function tx(store, mode, fn){
+    return new Promise(res => {
+      if (!db) return res(null);
+      try {
+        const t = db.transaction(store, mode); const req = fn(t.objectStore(store));
+        t.oncomplete = () => res(req ? req.result : null); t.onerror = () => res(null); t.onabort = () => res(null);
+      } catch(e){ res(null); }
+    });
+  }
+  const clean = it => ({id:it.id, name:it.name, image:it.image, audio:it.audio, audioName:it.audioName, duration:it.duration, horizon:it.horizon});
+  const saveItem = it => tx('items', 'readwrite', s => s.put(clean(it)));
+  const deleteItem = id => tx('items', 'readwrite', s => s.delete(id));
+  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle}, 'settings'));
+  async function loadAll(){
+    const all = await tx('items', 'readonly', s => s.getAll()) || [];
+    const meta = await tx('meta', 'readonly', s => s.get('settings'));
+    if (meta){
+      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle;
+      const pos = new Map((meta.order || []).map((id, i) => [id, i]));
+      all.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
+    }
+    items = all;
+  }
+
+  // ---------- 3D ----------
+  let renderer, scene, camera, group, mat, meshL, meshR, baseGeom, texture = null, eyeGeoms = [];
+  let lon = 0, lat = 0, horizonDeg = 0, format = 'mono';
+
+  function init3D(){
+    renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(stage.clientWidth, stage.clientHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0x000000);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
+    renderer.xr.setFramebufferScaleFactor(1.5); // sharper than the headset default
+    renderer.xr.setFoveation(0);                 // no blurred edges
     stage.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, stage.clientWidth / stage.clientHeight, 0.1, 1000);
-    camera.layers.enable(1); // 2D preview shows the left-eye image
-
-    group = new THREE.Group();
-    group.visible = false;
-    scene.add(group);
-
-    baseGeom = new THREE.SphereGeometry(100, 128, 64);
-    baseGeom.scale(-1, 1, 1);
+    camera.layers.enable(1);
+    group = new THREE.Group(); group.visible = false; scene.add(group);
+    baseGeom = new THREE.SphereGeometry(100, 128, 64); baseGeom.scale(-1, 1, 1);
     mat = new THREE.MeshBasicMaterial({color:0xffffff});
-    meshL = new THREE.Mesh(baseGeom, mat); meshL.layers.set(1); // left eye
-    meshR = new THREE.Mesh(baseGeom, mat); meshR.layers.set(2); // right eye
+    meshL = new THREE.Mesh(baseGeom, mat); meshL.layers.set(1);
+    meshR = new THREE.Mesh(baseGeom, mat); meshR.layers.set(2);
     group.add(meshL, meshR);
     applyYaw();
-
-    renderer.setAnimationLoop(render);
+    renderer.setAnimationLoop(() => {
+      if (!renderer.xr.isPresenting){
+        const lo = THREE.MathUtils.degToRad(lon), la = THREE.MathUtils.degToRad(lat);
+        camera.lookAt(Math.sin(lo) * Math.cos(la), Math.sin(la), -Math.cos(lo) * Math.cos(la));
+      }
+      renderer.render(scene, camera);
+    });
     window.addEventListener('resize', onResize);
   }
-
   function onResize(){
     if (renderer.xr.isPresenting) return;
     renderer.setSize(stage.clientWidth, stage.clientHeight);
-    camera.aspect = stage.clientWidth / stage.clientHeight;
-    camera.updateProjectionMatrix();
+    camera.aspect = stage.clientWidth / stage.clientHeight; camera.updateProjectionMatrix();
   }
-
-  function render(){
-    if (!renderer.xr.isPresenting){
-      const lo = THREE.MathUtils.degToRad(lon), la = THREE.MathUtils.degToRad(lat);
-      camera.lookAt(Math.sin(lo) * Math.cos(la), Math.sin(la), -Math.cos(lo) * Math.cos(la));
-    }
-    renderer.render(scene, camera);
-  }
-
-  // Image centre faces forward (-z) at 0°. Positive values turn the view to the right.
   function applyYaw(){ group.rotation.y = -Math.PI / 2 + THREE.MathUtils.degToRad(yawDeg); }
 
-  function eyeGeom(su, ou, sv, ov){
-    const g = baseGeom.clone();
-    const uv = g.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su + ou, uv.getY(i) * sv + ov);
-    uv.needsUpdate = true;
-    eyeGeoms.push(g);
-    return g;
+  // Horizon correction: positive values raise a horizon that sits too low in the image.
+  function remapV(y){
+    const yh = 0.5 - horizonDeg / 180;
+    return y <= 0.5 ? y * (yh / 0.5) : yh + (y - 0.5) * ((1 - yh) / 0.5);
   }
-
+  function eyeGeom(su, ou, sv, ov){
+    const g = baseGeom.clone(); const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su + ou, remapV(uv.getY(i)) * sv + ov);
+    uv.needsUpdate = true; eyeGeoms.push(g); return g;
+  }
   function applyFormat(){
     eyeGeoms.forEach(g => g.dispose()); eyeGeoms = [];
     let L = baseGeom, R = baseGeom;
-    if (format === 'tb'){
-      const top = eyeGeom(1, 0, .5, .5), bottom = eyeGeom(1, 0, .5, 0);
-      L = swap ? bottom : top; R = swap ? top : bottom;
-    } else if (format === 'sbs'){
-      const left = eyeGeom(.5, 0, 1, 0), right = eyeGeom(.5, .5, 1, 0);
-      L = swap ? right : left; R = swap ? left : right;
-    }
+    if (format === 'tb'){ L = eyeGeom(1, 0, .5, .5); R = eyeGeom(1, 0, .5, 0); }
+    else if (format === 'sbs'){ L = eyeGeom(.5, 0, 1, 0); R = eyeGeom(.5, .5, 1, 0); }
+    else if (horizonDeg !== 0){ L = R = eyeGeom(1, 0, 1, 0); }
     meshL.geometry = L; meshR.geometry = R;
-    const is3D = format !== 'mono';
-    $('#swap').disabled = !is3D;
-    $('#swapWrap').classList.toggle('off', !is3D);
   }
 
-  // ---------- Look around in 2D preview ----------
-  let drag = null;
-  stage.addEventListener('pointerdown', e => {
-    drag = {x:e.clientX, y:e.clientY, lon, lat};
-    stage.setPointerCapture(e.pointerId); stage.classList.add('dragging');
-  });
-  stage.addEventListener('pointermove', e => {
-    if (!drag) return;
-    lon = drag.lon - (e.clientX - drag.x) * 0.15;
-    lat = Math.max(-85, Math.min(85, drag.lat + (e.clientY - drag.y) * 0.15));
-  });
-  const endDrag = () => { drag = null; stage.classList.remove('dragging'); };
-  stage.addEventListener('pointerup', endDrag);
-  stage.addEventListener('pointercancel', endDrag);
-
-  // ---------- Loading the panorama ----------
+  // ---------- Loading images (only the current and next scene, to save memory) ----------
+  const cache = new Map();
   const near = (a, b) => Math.abs(a - b) / b < 0.03;
-
-  function openFile(file){
-    if (!file) return;
-    if (file.type && !file.type.startsWith('image/')){ showLoadError('This file isn\u2019t an image. Choose a JPG or PNG panorama.'); return; }
-    if (imgURL) URL.revokeObjectURL(imgURL);
-    imgURL = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => useImage(img, file.name);
-    img.onerror = () => showLoadError('This image couldn\u2019t be opened. Save it as JPG or PNG and try again.');
-    img.src = imgURL;
+  function decode(it){
+    if (cache.has(it.id)) return cache.get(it.id);
+    const p = new Promise((res, rej) => {
+      const url = URL.createObjectURL(it.image);
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth, h = img.naturalHeight, max = renderer.capabilities.maxTextureSize;
+        let src = img;
+        if (w > max || h > max){
+          const s = Math.min(max / w, max / h), c = document.createElement('canvas');
+          c.width = Math.floor(w * s); c.height = Math.floor(h * s);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); src = c;
+        }
+        URL.revokeObjectURL(url);
+        res({src, w, h});
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+      img.src = url;
+    });
+    cache.set(it.id, p);
+    p.catch(() => cache.delete(it.id));
+    return p;
   }
-
-  function showLoadError(msg){
-    if ($('#panel').hidden){ const el = $('#emptyErr'); el.textContent = msg; el.hidden = false; }
-    else setNotice(msg, true);
+  function trimCache(keepIds){ for (const id of [...cache.keys()]) if (!keepIds.includes(id)) cache.delete(id); }
+  function detectFormat(w, h){
+    const r = w / h;
+    if (near(r, 2)) return 'mono';
+    if (near(r, 1)) return 'tb';
+    if (near(r, 4)) return 'sbs';
+    return null;
   }
-
-  function setNotice(msg, isError){
-    const n = $('#notice');
-    if (!msg){ n.hidden = true; return; }
-    n.textContent = msg; n.hidden = false;
-    n.classList.toggle('error', !!isError);
-  }
-
-  function useImage(img, name){
-    const w = img.naturalWidth, h = img.naturalHeight, r = w / h;
-    const max = renderer.capabilities.maxTextureSize;
-    let source = img, resized = false;
-    if (w > max || h > max){
-      const s = Math.min(max / w, max / h);
-      const c = document.createElement('canvas');
-      c.width = Math.floor(w * s); c.height = Math.floor(h * s);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      source = c; resized = true;
-    }
+  function showLoaded(it, d){
     if (texture) texture.dispose();
-    texture = new THREE.Texture(source);
+    texture = new THREE.Texture(d.src);
     texture.encoding = THREE.sRGBEncoding;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.needsUpdate = true;
     mat.map = texture; mat.needsUpdate = true;
-
-    let detected = 'mono', note = '';
-    if (near(r, 2)) detected = 'mono';
-    else if (near(r, 1)) detected = 'tb';
-    else if (near(r, 4)) detected = 'sbs';
-    else note = `This image is ${w} × ${h}, not 2:1, so it isn\u2019t a full 360° panorama. It will look stretched or zoomed in VR. Export it again at 2:1, for example 8192 × 4096.`;
-    if (resized) note = (note ? note + ' ' : '') + `It was reduced to ${source.width} × ${source.height} to fit this device\u2019s graphics limit.`;
-    setFormat(detected);
-
-    $('#fname').textContent = name;
-    const label = {mono:'360° flat (2D)', tb:'360° 3D top–bottom', sbs:'360° 3D side-by-side'}[detected];
-    $('#fmeta').textContent = `${w} × ${h}` + (note && !near(r,2) && !near(r,1) && !near(r,4) ? '' : ` \u2014 detected as ${label}`);
-    setNotice(note, false);
-
-    lon = 0; lat = 0;
-    group.visible = true;
-    $('#empty').hidden = true;
-    $('#panel').hidden = false;
-    $('#emptyErr').hidden = true;
-    updateEnter();
-  }
-
-  function setFormat(f){
-    format = f;
-    document.querySelectorAll('input[name=fmt]').forEach(i => { i.checked = i.value === f; });
+    const f = detectFormat(d.w, d.h);
+    format = f || 'mono';
+    horizonDeg = it.horizon || 0;
     applyFormat();
+    group.visible = true;
+    it._fmtWarn = f ? '' : `${d.w} × ${d.h} is not 2:1, so this isn\u2019t a full 360° image and will look stretched or zoomed in.`;
+  }
+  async function preview(it){
+    try {
+      const d = await decode(it);
+      previewId = it.id; trimCache([it.id]);
+      showLoaded(it, d); lon = 0; lat = 0;
+      $('#zoom').hidden = false;
+      renderList();
+    } catch(e){ setNotice('\u201c' + it.name + '\u201d couldn\u2019t be opened. Save it as JPG or PNG and add it again.', 'error'); }
   }
 
-  // ---------- Controls ----------
-  $('#openBtn').addEventListener('click', () => $('#fileIn').click());
-  $('#openBtn2').addEventListener('click', () => $('#fileIn').click());
-  $('#fileIn').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
-  document.querySelectorAll('input[name=fmt]').forEach(i => i.addEventListener('change', () => { format = i.value; applyFormat(); }));
-  $('#swap').addEventListener('change', e => { swap = e.target.checked; applyFormat(); });
-  $('#yaw').addEventListener('input', e => {
-    yawDeg = +e.target.value; $('#yawOut').textContent = yawDeg + '°';
-    applyYaw(); lon = 0; lat = 0;
+  // ---------- Preview look-around and zoom ----------
+  const FOV_MIN = 30, FOV_MAX = 100, FOV_DEFAULT = 75;
+  function setFov(f){ camera.fov = Math.max(FOV_MIN, Math.min(FOV_MAX, f)); camera.updateProjectionMatrix(); }
+  const pointers = new Map(); let drag = null, pinch = null;
+  const dist = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  stage.addEventListener('pointerdown', e => {
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY}); stage.setPointerCapture(e.pointerId);
+    if (pointers.size === 1){ drag = {x:e.clientX, y:e.clientY, lon, lat}; stage.classList.add('dragging'); }
+    else if (pointers.size === 2){ drag = null; pinch = {d:dist(), fov:camera.fov}; }
   });
-  $('#toggle').addEventListener('click', e => {
-    const p = $('#panel'); const collapsed = p.classList.toggle('collapsed');
-    e.target.textContent = collapsed ? 'Show controls' : 'Hide controls';
-    e.target.setAttribute('aria-expanded', String(!collapsed));
+  stage.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if (pinch && pointers.size === 2){ setFov(pinch.fov * pinch.d / Math.max(1, dist())); return; }
+    if (!drag) return;
+    const k = 0.15 * camera.fov / FOV_DEFAULT;
+    lon = drag.lon - (e.clientX - drag.x) * k;
+    lat = Math.max(-85, Math.min(85, drag.lat + (e.clientY - drag.y) * k));
   });
+  const endDrag = e => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = null; if (!pointers.size){ drag = null; stage.classList.remove('dragging'); } };
+  stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+  stage.addEventListener('wheel', e => { e.preventDefault(); setFov(camera.fov * (1 + Math.sign(e.deltaY) * 0.08)); }, {passive:false});
+  $('#zoomIn').addEventListener('click', () => setFov(camera.fov / 1.15));
+  $('#zoomOut').addEventListener('click', () => setFov(camera.fov * 1.15));
+  $('#zoomReset').addEventListener('click', () => { setFov(FOV_DEFAULT); lon = 0; lat = 0; });
 
-  // Sound
-  $('#audioBtn').addEventListener('click', () => $('#audioIn').click());
-  $('#audioIn').addEventListener('change', e => {
-    const f = e.target.files[0]; e.target.value = '';
-    if (!f) return;
-    removeAudio();
-    audioURL = URL.createObjectURL(f);
-    audio = new Audio(audioURL); audio.loop = true;
-    $('#aname').textContent = f.name;
-    $('#aplay').hidden = false; $('#aremove').hidden = false;
-    $('#audioBtn').textContent = 'Change sound';
-  });
-  $('#aplay').addEventListener('click', () => {
-    if (!audio) return;
-    if (audio.paused){ audio.play().catch(()=>{}); $('#aplay').textContent = 'Stop'; }
-    else { audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
-  });
-  $('#aremove').addEventListener('click', removeAudio);
-  function removeAudio(){
-    if (audio){ audio.pause(); audio = null; }
+  // ---------- Sound ----------
+  const audioEl = new Audio(); audioEl.loop = true;
+  let audioURL = null, previewingAudioId = null;
+  function setAudio(blob){
+    audioEl.pause();
     if (audioURL){ URL.revokeObjectURL(audioURL); audioURL = null; }
-    $('#aname').textContent = 'None';
-    $('#aplay').hidden = true; $('#aplay').textContent = 'Play';
-    $('#aremove').hidden = true;
-    $('#audioBtn').textContent = 'Add sound';
+    if (blob){ audioURL = URL.createObjectURL(blob); audioEl.src = audioURL; audioEl.currentTime = 0; }
+    else audioEl.removeAttribute('src');
+  }
+  function stopAudio(){ audioEl.pause(); previewingAudioId = null; }
+  function unlockAudio(){ // runs inside the tap so later scenes are allowed to play sound
+    try {
+      audioEl.muted = true;
+      const p = audioEl.play();
+      if (p) p.then(() => { audioEl.pause(); audioEl.muted = false; }).catch(() => { audioEl.muted = false; });
+    } catch(e){ audioEl.muted = false; }
   }
 
-  // Drag and drop (computer)
+  // ---------- Scene list ----------
+  function setNotice(msg, kind){
+    const n = $('#notice');
+    if (!msg){ n.hidden = true; return; }
+    n.textContent = msg; n.hidden = false; n.className = 'notice' + (kind ? ' ' + kind : '');
+  }
+  function el(tag, attrs, ...kids){
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})){
+      if (k === 'on') for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+      else if (k === 'className' || k === 'textContent' || k === 'value' || k === 'disabled' || k === 'htmlFor' || k === 'type' || k === 'id' || k === 'placeholder') e[k] = v;
+      else e.setAttribute(k, v);
+    }
+    kids.flat().forEach(c => c != null && e.append(c));
+    return e;
+  }
+
+  function renderList(){
+    const list = $('#list'); list.innerHTML = '';
+    items.forEach((it, i) => {
+      const nameIn = el('input', {className:'name', type:'text', value:it.name, 'aria-label':`Name of scene ${i + 1}`,
+        on:{change: e => { it.name = e.target.value.trim() || it.name; e.target.value = it.name; saveItem(it); }}});
+      const top = el('div', {className:'scene-top'},
+        el('span', {className:'num', 'aria-hidden':'true'}, String(i + 1)), nameIn,
+        el('button', {className:'icon-btn', type:'button', title:'Move up', 'aria-label':`Move ${it.name} up`, disabled:i === 0, on:{click: () => move(i, -1)}}, '\u2191'),
+        el('button', {className:'icon-btn', type:'button', title:'Move down', 'aria-label':`Move ${it.name} down`, disabled:i === items.length - 1, on:{click: () => move(i, 1)}}, '\u2193'),
+        el('button', {className:'icon-btn', type:'button', title:'Remove', 'aria-label':`Remove ${it.name}`, on:{click: () => remove(i)}}, '\u2715'));
+
+      const durId = 'dur-' + it.id, hzId = 'hz-' + it.id;
+      const dur = el('div', {className:'field'}, el('label', {htmlFor:durId}, 'Show for (seconds)'),
+        el('input', {id:durId, type:'number', min:'0', step:'1', inputmode:'numeric', placeholder:'No limit', value:it.duration ?? '',
+          on:{change: e => { const v = parseFloat(e.target.value); it.duration = v > 0 ? v : null; saveItem(it); }}}));
+      const hz = el('div', {className:'field'}, el('label', {htmlFor:hzId}, 'Horizon correction (\u00b0)'),
+        el('input', {id:hzId, type:'number', min:'-20', max:'20', step:'0.5', value:it.horizon || 0,
+          on:{change: e => {
+            it.horizon = Math.max(-20, Math.min(20, parseFloat(e.target.value) || 0)); e.target.value = it.horizon; saveItem(it);
+            if (previewId === it.id){ horizonDeg = it.horizon; applyFormat(); }
+          }}}));
+      const playing = previewingAudioId === it.id;
+      const sound = el('div', {className:'field'}, el('span', {className:'lab'}, 'Sound'),
+        el('div', {className:'sound'},
+          el('button', {className:'btn secondary small', type:'button', on:{click: () => { audioTarget = it; $('#audioIn').click(); }}}, it.audio ? 'Change' : 'Add sound'),
+          el('span', {className:'fname'}, it.audio ? it.audioName : 'None'),
+          it.audio ? el('button', {className:'ghost', type:'button', on:{click: () => toggleAudioPreview(it)}}, playing ? 'Stop' : 'Play') : null,
+          it.audio ? el('button', {className:'ghost', type:'button', on:{click: () => {
+            if (previewingAudioId === it.id) stopAudio();
+            it.audio = null; it.audioName = ''; saveItem(it); renderList();
+          }}}, 'Remove') : null));
+
+      const actions = el('div', {className:'scene-actions'},
+        el('button', {className:'btn secondary small', type:'button', on:{click: () => preview(it)}}, previewId === it.id ? 'Showing in preview' : 'Preview'),
+        el('button', {className:'btn primary', type:'button', style:'min-height:44px;padding:0 18px;font-size:15px', on:{click: () => play([it])}}, 'Play this in VR'));
+
+      list.append(el('li', {className:'scene' + (previewId === it.id ? ' current' : '')}, top,
+        el('div', {className:'scene-grid'}, dur, hz, sound),
+        it._fmtWarn ? el('span', {className:'chip'}, it._fmtWarn) : null,
+        actions));
+    });
+    $('#playAll').disabled = !items.length;
+    $('#playAll').textContent = items.length > 1 ? `Play all ${items.length} in VR` : 'Play in VR';
+  }
+
+  function toggleAudioPreview(it){
+    if (previewingAudioId === it.id){ stopAudio(); renderList(); return; }
+    setAudio(it.audio); audioEl.play().catch(()=>{}); previewingAudioId = it.id; renderList();
+  }
+  function move(i, d){ const j = i + d; [items[i], items[j]] = [items[j], items[i]]; saveMeta(); renderList(); }
+  function remove(i){
+    const [it] = items.splice(i, 1); deleteItem(it.id); saveMeta(); cache.delete(it.id);
+    if (previewingAudioId === it.id) stopAudio();
+    if (previewId === it.id){ previewId = null; group.visible = false; }
+    if (!items.length) showEmpty(); else renderList();
+  }
+
+  async function addFiles(files){
+    const imgs = [...files].filter(f => !f.type || f.type.startsWith('image/'));
+    if (!imgs.length){
+      const msg = 'Those files aren\u2019t images. Choose JPG or PNG panoramas.';
+      if ($('#panel').hidden){ $('#emptyErr').textContent = msg; $('#emptyErr').hidden = false; } else setNotice(msg, 'error');
+      return;
+    }
+    const first = items.length;
+    for (const f of imgs){
+      const it = {id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: f.name.replace(/\.[^.]+$/, ''),
+        image: f, audio: null, audioName: '', duration: 60, horizon: 0};
+      items.push(it); await saveItem(it);
+    }
+    await saveMeta();
+    showPanel();
+    if (!previewId) preview(items[first]);
+  }
+  $('#audioIn').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f || !audioTarget) return;
+    audioTarget.audio = f; audioTarget.audioName = f.name; await saveItem(audioTarget); audioTarget = null; renderList();
+  });
+
+  function showEmpty(){ $('#panel').hidden = true; $('#zoom').hidden = true; $('#empty').hidden = false; group.visible = false; }
+  function showPanel(){ $('#empty').hidden = true; $('#emptyErr').hidden = true; $('#panel').hidden = false; renderList(); updateVRNote(); }
+
+  $('#openBtn').addEventListener('click', () => $('#fileIn').click());
+  $('#addMore').addEventListener('click', () => $('#fileIn').click());
+  $('#fileIn').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
   ['dragenter','dragover'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); document.body.classList.add('over'); }));
   ['dragleave','drop'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); document.body.classList.remove('over'); }));
-  window.addEventListener('drop', e => openFile(e.dataTransfer.files[0]));
+  window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
 
-  // ---------- VR ----------
+  $('#yaw').addEventListener('input', e => { yawDeg = +e.target.value; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw(); lon = 0; lat = 0; });
+  $('#yaw').addEventListener('change', saveMeta);
+  $('#gap').addEventListener('change', e => { gapSec = Math.max(0, parseFloat(e.target.value) || 0); e.target.value = gapSec; saveMeta(); });
+  $('#shuffle').addEventListener('change', e => { shuffle = e.target.checked; saveMeta(); });
+  $('#toggle').addEventListener('click', e => {
+    const c = $('#panel').classList.toggle('collapsed');
+    e.target.textContent = c ? 'Show controls' : 'Hide controls'; e.target.setAttribute('aria-expanded', String(!c));
+  });
+
+  // ---------- VR playback ----------
   let xrStatus = 'checking';
   const framed = (() => { try { return window.self !== window.top; } catch(e){ return true; } })();
   const xrMessages = {
     nobrowser: 'This browser has no VR support. Open the page in the Quest Browser.',
-    blocked: 'VR is blocked because this page is shown inside another page. Open the viewer file from its own web address (see the instructions in chat).',
-    nohmd: 'No headset detected. On a computer you can still preview the image here; use the Quest Browser for VR.',
-    ok: ''
+    blocked: 'VR is blocked because this page is shown inside another page. Open it from its own web address.',
+    nohmd: 'No headset detected. You can still set up and preview scenes here; use the Quest Browser for VR.',
+    ok: '', checking: ''
   };
-
-  function updateEnter(){
-    $('#enter').disabled = !texture;
-    $('#vrnote').textContent = xrMessages[xrStatus] || '';
-  }
-
+  function updateVRNote(){ $('#vrnote').textContent = xrMessages[xrStatus] || ''; }
   async function checkXR(){
     const policy = document.permissionsPolicy || document.featurePolicy;
-    const policyBlocks = policy && typeof policy.allowsFeature === 'function' && !policy.allowsFeature('xr-spatial-tracking');
     if (!navigator.xr) xrStatus = 'nobrowser';
-    else if (policyBlocks) xrStatus = 'blocked';
+    else if (policy && policy.allowsFeature && !policy.allowsFeature('xr-spatial-tracking')) xrStatus = 'blocked';
     else {
-      try { xrOK = await navigator.xr.isSessionSupported('immersive-vr'); }
-      catch(e){ xrOK = false; }
-      xrStatus = xrOK ? 'ok' : (framed ? 'blocked' : 'nohmd');
+      let ok = false;
+      try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch(e){}
+      xrStatus = ok ? 'ok' : (framed ? 'blocked' : 'nohmd');
     }
-    updateEnter();
+    updateVRNote();
   }
 
-  $('#enter').addEventListener('click', async () => {
-    if (!texture) return;
-    if (!navigator.xr){ setNotice(xrMessages.nobrowser, true); return; }
-    if (audio){ audio.currentTime = 0; audio.play().catch(()=>{}); $('#aplay').textContent = 'Stop'; }
-    try {
-      const session = await navigator.xr.requestSession('immersive-vr', {optionalFeatures:['local-floor']});
-      session.addEventListener('end', onSessionEnd);
-      await renderer.xr.setSession(session);
-      const secs = parseFloat($('#dur').value);
-      if (secs > 0) endTimer = setTimeout(() => session.end().catch(()=>{}), secs * 1000);
-      setNotice('', false);
-    } catch(err){
-      if (audio){ audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
-      const blocked = err && (err.name === 'SecurityError' || err.name === 'NotAllowedError');
-      setNotice(blocked
-        ? 'The browser blocked VR on this page. Open the page on its own in the Quest Browser, not inside another app, and try again.'
-        : 'VR couldn\u2019t start' + (err && err.message ? ': ' + err.message : '.') + ' Close other VR apps and try again.', true);
-    }
+  let session = null, cancelWait = null;
+  function wait(ms){
+    return new Promise(res => {
+      const t = ms === Infinity ? null : setTimeout(done, ms);
+      function done(){ if (t) clearTimeout(t); cancelWait = null; res(); }
+      cancelWait = done;
+    });
+  }
+
+  $('#playAll').addEventListener('click', () => {
+    if (!items.length) return;
+    const order = items.slice();
+    if (shuffle) for (let i = order.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    play(order);
   });
 
-  function onSessionEnd(){
-    clearTimeout(endTimer); endTimer = null;
-    if (audio){ audio.pause(); audio.currentTime = 0; $('#aplay').textContent = 'Play'; }
-    onResize();
+  async function play(order){
+    if (session) return;
+    if (!navigator.xr){ setNotice(xrMessages.nobrowser, 'error'); return; }
+    stopAudio(); unlockAudio();
+    try {
+      session = await navigator.xr.requestSession('immersive-vr', {optionalFeatures:['local-floor']});
+    } catch(err){
+      session = null;
+      const blocked = err && (err.name === 'SecurityError' || err.name === 'NotAllowedError');
+      setNotice(blocked ? xrMessages.blocked : 'VR couldn\u2019t start' + (err && err.message ? ': ' + err.message : '.') + ' Close other VR apps and try again.', 'error');
+      return;
+    }
+    session.addEventListener('end', () => { session = null; if (cancelWait) cancelWait(); stopAudio(); onResize(); });
+    await renderer.xr.setSession(session);
+    renderer.xr.setFoveation(0);
+    setNotice(order.length > 1 ? 'Last played order: ' + order.map(o => o.name).join(' \u2192 ') : '', 'ok');
+
+    for (let i = 0; i < order.length && session; i++){
+      const it = order[i];
+      group.visible = false; stopAudio();
+      const started = performance.now();
+      let d;
+      try { d = await decode(it); } catch(e){ continue; }
+      if (!session) break;
+      const left = (i > 0 ? gapSec * 1000 : 0) - (performance.now() - started);
+      if (left > 0) await wait(left);
+      if (!session) break;
+      showLoaded(it, d);
+      if (it.audio){ setAudio(it.audio); audioEl.play().catch(()=>{}); }
+      const next = order[i + 1];
+      trimCache([it.id, next && next.id].filter(Boolean));
+      if (next) decode(next).catch(()=>{});   // get the next scene ready in the background
+      await wait(it.duration > 0 ? it.duration * 1000 : Infinity);
+    }
+    if (session) session.end().catch(()=>{});
+    // Return to the 2D preview of the first scene in the list
+    if (items.length) preview(items[0]); else group.visible = false;
   }
 
-  init();
-  checkXR();
+  // ---------- Start ----------
+  (async () => {
+    init3D();
+    await openDB();
+    await loadAll();
+    $('#yaw').value = yawDeg; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw();
+    $('#gap').value = gapSec; $('#shuffle').checked = shuffle;
+    if (items.length){ showPanel(); preview(items[0]); }
+    checkXR();
+  })();
 })();
 </script>
 </body>
