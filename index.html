@@ -157,9 +157,16 @@ body.over #drop{display:grid}
         <input type="range" id="dist" min="2" max="100" step="1" value="100">
         <p class="hint">Flat 360° images can feel oversized in the headset. A shorter distance makes the scene feel smaller and closer. Try 4–8 m, then use the same value for every scene and participant.</p>
       </div>
+      <div>
+        <span class="lab">Comparison at the end</span>
+        <label class="check"><input type="checkbox" id="compareOn" checked> Show all scenes side by side (A–E) after “Play all”</label>
+        <div class="inline" style="margin-top:6px"><input type="number" id="compareDur" min="0" step="1" placeholder="Until exit" inputmode="numeric"><span class="muted">seconds</span></div>
+        <p class="hint">Letters follow the scene list order (first scene = A), the same for every participant, so answers stay comparable.</p>
+      </div>
     </div>
 
     <div class="actions">
+      <button class="btn secondary" id="compareOnly" type="button" disabled>Show comparison only</button>
       <button class="btn primary" id="playAll" type="button" disabled>Play all in VR</button>
     </div>
     <p id="vrnote" class="hint"></p>
@@ -183,7 +190,7 @@ body.over #drop{display:grid}
 
   // ---------- State ----------
   let items = [];           // {id, name, image:Blob, audio:Blob|null, audioName, duration, horizon}
-  let yawDeg = 0, gapSec = 2, shuffle = false, sceneDist = 100, quality = 1.2;
+  let yawDeg = 0, gapSec = 2, shuffle = false, sceneDist = 100, quality = 1.2, compareOn = true, compareDur = null;
   let previewId = null;
   let audioTarget = null;
 
@@ -211,12 +218,12 @@ body.over #drop{display:grid}
   const clean = it => ({id:it.id, name:it.name, image:it.image, audio:it.audio, audioName:it.audioName, duration:it.duration, horizon:it.horizon});
   const saveItem = it => tx('items', 'readwrite', s => s.put(clean(it)));
   const deleteItem = id => tx('items', 'readwrite', s => s.delete(id));
-  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle, sceneDist, quality}, 'settings'));
+  const saveMeta = () => tx('meta', 'readwrite', s => s.put({order:items.map(i => i.id), yawDeg, gapSec, shuffle, sceneDist, quality, compareOn, compareDur}, 'settings'));
   async function loadAll(){
     const all = await tx('items', 'readonly', s => s.getAll()) || [];
     const meta = await tx('meta', 'readonly', s => s.get('settings'));
     if (meta){
-      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle; sceneDist = meta.sceneDist || 100; quality = meta.quality || 1.2;
+      yawDeg = meta.yawDeg || 0; gapSec = meta.gapSec ?? 2; shuffle = !!meta.shuffle; sceneDist = meta.sceneDist || 100; quality = meta.quality || 1.2; compareOn = meta.compareOn ?? true; compareDur = meta.compareDur ?? null;
       const pos = new Map((meta.order || []).map((id, i) => [id, i]));
       all.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
     }
@@ -425,7 +432,7 @@ body.over #drop{display:grid}
       const hz = el('div', {className:'field'}, el('label', {htmlFor:hzId}, 'Horizon correction (\u00b0)'),
         el('input', {id:hzId, type:'number', min:'-20', max:'20', step:'0.5', value:it.horizon || 0,
           on:{change: e => {
-            it.horizon = Math.max(-20, Math.min(20, parseFloat(e.target.value) || 0)); e.target.value = it.horizon; saveItem(it);
+            it.horizon = Math.max(-20, Math.min(20, parseFloat(e.target.value) || 0)); e.target.value = it.horizon; saveItem(it); cropCache.delete(it.id);
             if (previewId === it.id){ horizonDeg = it.horizon; applyFormat(); }
           }}}));
       const playing = previewingAudioId === it.id;
@@ -449,6 +456,7 @@ body.over #drop{display:grid}
         actions));
     });
     $('#playAll').disabled = !items.length;
+    $('#compareOnly').disabled = items.length < 2;
     $('#playAll').textContent = items.length > 1 ? `Play all ${items.length} in VR` : 'Play in VR';
   }
 
@@ -497,13 +505,15 @@ body.over #drop{display:grid}
   ['dragleave','drop'].forEach(t => window.addEventListener(t, e => { e.preventDefault(); document.body.classList.remove('over'); }));
   window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
 
-  $('#yaw').addEventListener('input', e => { yawDeg = +e.target.value; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw(); lon = 0; lat = 0; });
+  $('#yaw').addEventListener('input', e => { cropCache.clear(); yawDeg = +e.target.value; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw(); lon = 0; lat = 0; });
   $('#yaw').addEventListener('change', saveMeta);
   $('#gap').addEventListener('change', e => { gapSec = Math.max(0, parseFloat(e.target.value) || 0); e.target.value = gapSec; saveMeta(); });
   $('#shuffle').addEventListener('change', e => { shuffle = e.target.checked; saveMeta(); });
   $('#dist').addEventListener('input', e => { sceneDist = +e.target.value; $('#distOut').textContent = sceneDist + ' m'; applyDist(); });
   $('#dist').addEventListener('change', saveMeta);
   $('#quality').addEventListener('change', e => { quality = parseFloat(e.target.value) || 1.2; saveMeta(); });
+  $('#compareOn').addEventListener('change', e => { compareOn = e.target.checked; saveMeta(); });
+  $('#compareDur').addEventListener('change', e => { const v = parseFloat(e.target.value); compareDur = v > 0 ? v : null; e.target.value = compareDur ?? ''; saveMeta(); });
   $('#toggle').addEventListener('click', e => {
     const c = $('#panel').classList.toggle('collapsed');
     e.target.textContent = c ? 'Show controls' : 'Hide controls'; e.target.setAttribute('aria-expanded', String(!c));
@@ -547,7 +557,78 @@ body.over #drop{display:grid}
     play(order);
   });
 
-  async function play(order){
+  // ---------- Side-by-side comparison (A–E) ----------
+  const cropCache = new Map();   // small front-view image per scene
+  let compGroup = null;
+  const LETTERS = 'ABCDEFGH';
+  function makeCrop(it, d){
+    // Front view of the panorama: 100° wide, 50° tall, centred on the starting direction and the horizon.
+    const w = d.src.width || d.src.naturalWidth, h = d.src.height || d.src.naturalHeight;
+    const cw = w * 100 / 360, ch = h * 50 / 180;
+    let cx = (w * (0.5 + yawDeg / 360)) % w; if (cx < 0) cx += w;
+    const cy = Math.min(h - ch / 2, Math.max(ch / 2, h * (0.5 + (it.horizon || 0) / 180)));
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
+    const g = c.getContext('2d');
+    let sx = cx - cw / 2;
+    if (sx < 0) sx += w;
+    const first = Math.min(cw, w - sx);
+    g.drawImage(d.src, sx, cy - ch / 2, first, ch, 0, 0, 1024 * first / cw, 512);
+    if (first < cw) g.drawImage(d.src, 0, cy - ch / 2, cw - first, ch, 1024 * first / cw, 0, 1024 * (cw - first) / cw, 512);
+    return c;
+  }
+  function badge(c, letter){
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(20,26,22,.82)'; g.beginPath(); g.arc(70, 70, 50, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffffff'; g.font = 'bold 64px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(letter, 70, 74);
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 6; g.strokeRect(3, 3, c.width - 6, c.height - 6);
+    return c;
+  }
+  function textPanel(text){
+    const c = document.createElement('canvas'); c.width = 1600; c.height = 160;
+    const g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.font = '600 64px Arial, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 800, 80);
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.22), new THREE.MeshBasicMaterial({map:t, transparent:true}));
+    return m;
+  }
+  async function buildComparison(list){
+    disposeComparison();
+    compGroup = new THREE.Group();
+    const n = list.length, perRow = n > 3 ? Math.ceil(n / 2) : n, rowsN = Math.ceil(n / perRow);
+    const PW = 1.0, PH = 0.5, GAP = 0.12, DIST = 2.4;
+    for (let i = 0; i < n; i++){
+      const it = list[i];
+      let crop = cropCache.get(it.id);
+      if (!crop){ try { crop = makeCrop(it, await decode(it)); cropCache.set(it.id, crop); cache.delete(it.id); } catch(e){ continue; } }
+      const c = document.createElement('canvas'); c.width = crop.width; c.height = crop.height;
+      c.getContext('2d').drawImage(crop, 0, 0); badge(c, LETTERS[i]);
+      const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({map:tex}));
+      const row = Math.floor(i / perRow), inRow = row < rowsN - 1 ? perRow : n - perRow * (rowsN - 1), col = i - row * perRow;
+      const x = (col - (inRow - 1) / 2) * (PW + GAP);
+      const y = ((rowsN - 1) / 2 - row) * (PH + GAP);
+      const ang = Math.atan2(x, DIST);
+      mesh.position.set(Math.sin(ang) * DIST, y, -Math.cos(ang) * DIST);
+      mesh.lookAt(0, y, 0);
+      compGroup.add(mesh);
+    }
+    const title = textPanel('Look at all five places. Which do you prefer?');
+    title.position.set(0, ((rowsN - 1) / 2) * (PH + GAP) + PH / 2 + 0.22, -DIST); title.lookAt(0, title.position.y, 0);
+    compGroup.add(title);
+    scene.add(compGroup);
+    return list.map((it, i) => LETTERS[i] + ' = ' + it.name).join(', ');
+  }
+  function disposeComparison(){
+    if (!compGroup) return;
+    compGroup.traverse(o => { if (o.isMesh){ o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); } });
+    scene.remove(compGroup); compGroup = null;
+  }
+
+  $('#compareOnly').addEventListener('click', () => { if (items.length > 1) play([], {compareOnly:true}); });
+
+  async function play(order, opts = {}){
     if (session) return;
     if (!navigator.xr){ setNotice(xrMessages.nobrowser, 'error'); return; }
     stopAudio(); unlockAudio();
@@ -563,7 +644,8 @@ body.over #drop{display:grid}
     renderer.xr.setFramebufferScaleFactor(quality);
     await renderer.xr.setSession(session);
     renderer.xr.setFoveation(0);
-    setNotice(order.length > 1 ? 'Last played order: ' + order.map(o => o.name).join(' \u2192 ') : '', 'ok');
+    let note = order.length > 1 ? 'Last played order: ' + order.map(o => o.name).join(' \u2192 ') : '';
+    setNotice(note, 'ok');
 
     for (let i = 0; i < order.length && session; i++){
       const it = order[i];
@@ -576,11 +658,21 @@ body.over #drop{display:grid}
       if (left > 0) await wait(left);
       if (!session) break;
       showLoaded(it, d);
+      if (!cropCache.has(it.id)) { try { cropCache.set(it.id, makeCrop(it, d)); } catch(e){} }
       if (it.audio){ setAudio(it.audio); audioEl.play().catch(()=>{}); }
       const next = order[i + 1];
       trimCache([it.id, next && next.id].filter(Boolean));
       if (next) decode(next).catch(()=>{});   // get the next scene ready in the background
       await wait(it.duration > 0 ? it.duration * 1000 : Infinity);
+    }
+    if (session && (opts.compareOnly || (compareOn && order.length > 1 && items.length > 1))){
+      group.visible = false; stopAudio();
+      renderer.setClearColor(0x1b201d);
+      const mapping = await buildComparison(items.slice(0, 5));
+      note = (note ? note + '. ' : '') + 'Comparison letters: ' + mapping;
+      setNotice(note, 'ok');
+      if (session) await wait(compareDur > 0 ? compareDur * 1000 : Infinity);
+      disposeComparison(); renderer.setClearColor(0x000000);
     }
     if (session) session.end().catch(()=>{});
     // Return to the 2D preview of the first scene in the list
@@ -594,6 +686,7 @@ body.over #drop{display:grid}
     await loadAll();
     $('#yaw').value = yawDeg; $('#yawOut').textContent = yawDeg + '\u00b0'; applyYaw();
     $('#gap').value = gapSec; $('#shuffle').checked = shuffle;
+    $('#compareOn').checked = compareOn; $('#compareDur').value = compareDur ?? '';
     $('#quality').value = String(quality); $('#dist').value = sceneDist; $('#distOut').textContent = sceneDist + ' m'; applyDist();
     if (items.length){ showPanel(); preview(items[0]); }
     checkXR();
